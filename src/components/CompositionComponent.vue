@@ -7,6 +7,16 @@
       @click="startScanning"
     ></q-btn>
     <q-btn v-else round icon="pause" @click="stopScanning"></q-btn>
+    <q-icon
+      v-if="isStepping"
+      name="directions_walk"
+      class="text-primary"
+      size="xl"
+    ></q-icon>
+    <q-icon v-else name="directions_walk" size="xl"></q-icon>
+    <q-badge color="secondary"> Model: {{ threshold }} (0 to 25) </q-badge>
+
+    <q-slider v-model="threshold" :min="0" :max="25" />
 
     <div class="q-mx-md ellipsis text-h2">Acceleration</div>
     <div class="q-mx-md">X: {{ acceleration?.x }}</div>
@@ -123,9 +133,19 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const { acceleration, rotationRate, enableSensor, disableSensor } =
-      useDeviceMotion();
+    const { acceleration, enableSensor, disableSensor } = useDeviceMotion();
     const isScanning = ref(false);
+    const threshold = ref(12);
+    const isStepping = computed(() => {
+      const ax = acceleration.value?.x ? acceleration.value.x : 0;
+      const ay = acceleration.value?.y ? acceleration.value.y : 0;
+      const az = acceleration.value?.z ? acceleration.value.z : 0;
+      if (Math.abs(ax) + Math.abs(ay) + Math.abs(az) > threshold.value) {
+        return true;
+      } else {
+        return false;
+      }
+    });
 
     const startScanning = () => {
       enableSensor();
@@ -141,10 +161,11 @@ export default defineComponent({
       ...useClickCount(),
       ...useDisplayTodo(toRef(props, 'todos')),
       acceleration,
-      rotationRate,
       stopScanning,
       startScanning,
       isScanning,
+      isStepping,
+      threshold,
     };
   },
 });
