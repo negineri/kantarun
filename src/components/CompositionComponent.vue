@@ -14,10 +14,12 @@
       size="xl"
     ></q-icon>
     <q-icon v-else name="directions_walk" size="xl"></q-icon>
-    <q-badge color="secondary"> Model: {{ threshold }} (0 to 25) </q-badge>
+    <q-badge color="secondary"> Model: {{ threshold }} (0 to 50) </q-badge>
 
-    <q-slider v-model="threshold" :min="0" :max="25" />
+    <q-slider v-model="threshold" :min="0" :max="50" />
 
+    <div class="q-mx-md">step count: {{ steptimeHistory.length }}</div>
+    <div class="q-mx-md">BPM: {{ runningBPM }}</div>
     <div class="q-mx-md ellipsis text-h2">Acceleration</div>
     <div class="q-mx-md">X: {{ acceleration?.x }}</div>
     <div class="q-mx-md">Y: {{ acceleration?.y }}</div>
@@ -26,23 +28,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType, computed, ref, toRef, Ref } from 'vue';
+import { defineComponent, PropType, computed, ref, watch } from 'vue';
 import { Todo, Meta } from './models';
-
-function useClickCount() {
-  const clickCount = ref(0);
-  function increment() {
-    clickCount.value += 1;
-    return clickCount.value;
-  }
-
-  return { clickCount, increment };
-}
-
-function useDisplayTodo(todos: Ref<Todo[]>) {
-  const todoCount = computed(() => todos.value.length);
-  return { todoCount };
-}
 
 interface DeviceMotionOptions {
   throttleMs: number;
@@ -57,7 +44,7 @@ type DeviceMotionEventRotationRateRW = {
 };
 
 interface DeviceMotionEventIos extends DeviceMotionEvent {
-  requestPermission: () => Promise<any>;
+  requestPermission(): Promise<PermissionState>;
 }
 
 function useDeviceMotion(options?: DeviceMotionOptions) {
@@ -132,10 +119,10 @@ export default defineComponent({
       type: Boolean,
     },
   },
-  setup(props) {
+  setup() {
     const { acceleration, enableSensor, disableSensor } = useDeviceMotion();
     const isScanning = ref(false);
-    const threshold = ref(12);
+    const threshold = ref(25);
     const isStepping = computed(() => {
       const ax = acceleration.value?.x ? acceleration.value.x : 0;
       const ay = acceleration.value?.y ? acceleration.value.y : 0;
@@ -146,9 +133,44 @@ export default defineComponent({
         return false;
       }
     });
+    const steptimeHistory = ref<Date[]>([]);
+    const runningBPM = ref(0);
+
+    watch(isStepping, () => {
+      if (isStepping.value) {
+        let currentTime = new Date();
+        if (
+          steptimeHistory.value[steptimeHistory.value.length].getTime() -
+            currentTime.getTime() >
+          250
+        ) {
+          steptimeHistory.value.push(currentTime);
+        }
+      }
+      if (steptimeHistory.value.length > 10) {
+        let shMin = 9999999999999;
+        let shMax = 0;
+        for (
+          let index = steptimeHistory.value.length - 6;
+          index < steptimeHistory.value.length;
+          index++
+        ) {
+          let shTemp =
+            steptimeHistory.value[index].getTime() -
+            steptimeHistory.value[index - 1].getTime();
+          if (shTemp < shMin) shMin = shTemp;
+          if (shTemp > shMax) shMax = shTemp;
+        }
+        if (shMax - shMin < 100) {
+          runningBPM.value = Math.round(60000 / ((shMax + shMin) / 2));
+          stopScanning();
+        }
+      }
+    });
 
     const startScanning = () => {
       enableSensor();
+      steptimeHistory.value = [new Date()];
       isScanning.value = true;
     };
 
@@ -158,14 +180,14 @@ export default defineComponent({
     };
 
     return {
-      ...useClickCount(),
-      ...useDisplayTodo(toRef(props, 'todos')),
       acceleration,
       stopScanning,
       startScanning,
       isScanning,
       isStepping,
       threshold,
+      steptimeHistory,
+      runningBPM,
     };
   },
 });
