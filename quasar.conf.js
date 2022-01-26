@@ -51,6 +51,11 @@ module.exports = configure(function (ctx) {
     build: {
       vueRouterMode: 'history', // available values: 'hash', 'history'
 
+      env: {
+        VUE_APP_JSON_SERVER: process.env.VUE_APP_JSON_SERVER
+          ? process.env.VUE_APP_JSON_SERVER
+          : 'https://example.com',
+      },
       // transpile: false,
       // publicPath: '/',
 

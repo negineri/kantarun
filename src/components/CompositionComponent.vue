@@ -20,7 +20,11 @@
 
     <div class="q-mx-md">step count: {{ steptimeHistory.length }}</div>
     <div class="q-mx-md">BPM: {{ runningBPM }}</div>
-    <div class="q-mx-md ellipsis text-h2">Acceleration</div>
+    <div class="q-mx-md">Title: {{ songData?.song.name }}</div>
+    <div class="q-mx-md">
+      Link: <a href="{{ songData?.song.url }}">{{ songData?.song.url }}</a>
+    </div>
+    <div class="q-mx-md ellipsis text-h4">Acceleration</div>
     <div class="q-mx-md">X: {{ acceleration?.x }}</div>
     <div class="q-mx-md">Y: {{ acceleration?.y }}</div>
     <div class="q-mx-md">Z: {{ acceleration?.z }}</div>
@@ -30,6 +34,7 @@
 <script lang="ts">
 import { defineComponent, PropType, computed, ref, watch } from 'vue';
 import { Todo, Meta } from './models';
+import axios, { AxiosResponse } from 'axios';
 
 interface DeviceMotionOptions {
   throttleMs: number;
@@ -100,6 +105,14 @@ function useDeviceMotion(options?: DeviceMotionOptions) {
   };
 }
 
+interface songJson {
+  song: {
+    name: string;
+    tempo: string;
+    url: string;
+  };
+}
+
 export default defineComponent({
   name: 'CompositionComponent',
   props: {
@@ -135,13 +148,14 @@ export default defineComponent({
     });
     const steptimeHistory = ref<Date[]>([]);
     const runningBPM = ref(0);
+    const songData = ref<songJson>();
 
     watch(isStepping, () => {
       if (isStepping.value) {
         let currentTime = new Date();
         if (
-          steptimeHistory.value[steptimeHistory.value.length].getTime() -
-            currentTime.getTime() >
+          currentTime.getTime() -
+            steptimeHistory.value[steptimeHistory.value.length - 1].getTime() >
           250
         ) {
           steptimeHistory.value.push(currentTime);
@@ -164,9 +178,32 @@ export default defineComponent({
         if (shMax - shMin < 100) {
           runningBPM.value = Math.round(60000 / ((shMax + shMin) / 2));
           stopScanning();
+          getMusic(runningBPM.value)
+            .then((res) => {
+              songData.value = res;
+            })
+            .catch((e) => {
+              console.error(e);
+            });
         }
       }
     });
+
+    const getMusic = async (bpm: number) => {
+      let songJ: AxiosResponse<songJson>;
+      try {
+        [songJ] = await Promise.all([
+          axios.get<songJson>(`${process.env.VUE_APP_JSON_SERVER}/song`, {
+            params: {
+              bpm: bpm,
+            },
+          }),
+        ]);
+      } catch (err) {
+        throw err;
+      }
+      return songJ.data;
+    };
 
     const startScanning = () => {
       enableSensor();
@@ -188,6 +225,7 @@ export default defineComponent({
       threshold,
       steptimeHistory,
       runningBPM,
+      songData,
     };
   },
 });
