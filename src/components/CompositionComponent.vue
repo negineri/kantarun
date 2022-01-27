@@ -22,7 +22,7 @@
     <div class="q-mx-md">BPM: {{ runningBPM }}</div>
     <div class="q-mx-md">Title: {{ songData?.song.name }}</div>
     <div class="q-mx-md">
-      Link: <a href="{{ songData?.song.url }}">{{ songData?.song.url }}</a>
+      Link: <a v-bind:href="songData?.song.url">{{ songData?.song.url }}</a>
     </div>
     <div class="q-mx-md ellipsis text-h4">Acceleration</div>
     <div class="q-mx-md">X: {{ acceleration?.x }}</div>
